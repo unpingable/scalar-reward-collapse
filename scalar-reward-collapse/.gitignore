@@ -1,0 +1,15 @@
+runs/
+logs/
+plots/
+.venv/
+*.egg-info/
+__pycache__/
+*.pyc
+*.pyo
+dist/
+build/
+.eggs/
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

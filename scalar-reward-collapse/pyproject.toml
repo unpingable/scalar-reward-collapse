@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scalar-reward-collapse"
+version = "0.1.0"
+description = "Canonical instantiation of scalar reward collapse (CFDD paper section 3.8)"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "matplotlib>=3.7",
+]
+
+[project.optional-dependencies]
+rl = [
+    "gymnasium>=0.29",
+    "torch>=2.0",
+    "stable-baselines3>=2.0",
+]
+dev = [
+    "pytest>=7.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
