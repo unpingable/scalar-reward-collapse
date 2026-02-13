@@ -84,6 +84,23 @@ def cmd_diff(args: argparse.Namespace) -> None:
     print(format_diff(md, "Metric diff"))
 
 
+def cmd_spec(args: argparse.Namespace) -> None:
+    """Print v0.2 canonical instantiation spec block for a run."""
+    from scalar_collapse.core.template import TemplateInst
+
+    summary_path = Path(args.run_dir) / "summary.json"
+    if not summary_path.exists():
+        print(f"No summary.json found in {args.run_dir}", file=sys.stderr)
+        sys.exit(1)
+
+    with open(summary_path) as f:
+        summary = json.load(f)
+
+    template_data = summary.get("template", {})
+    template = TemplateInst(**template_data)
+    print(template.to_spec_block())
+
+
 def cmd_plot(args: argparse.Namespace) -> None:
     """Generate plots for a run."""
     from scalar_collapse.experiments.bandit_ab.plots import generate_all_plots
@@ -121,6 +138,10 @@ def main() -> None:
     p_diff.add_argument("run_a", type=str, help="First run directory")
     p_diff.add_argument("run_b", type=str, help="Second run directory")
 
+    # spec
+    p_spec = sub.add_parser("spec", help="Print v0.2 spec block")
+    p_spec.add_argument("--run-dir", type=str, required=True, help="Path to run directory")
+
     # plot
     p_plot = sub.add_parser("plot", help="Generate plots")
     p_plot.add_argument("--run-dir", type=str, required=True, help="Path to run directory")
@@ -136,6 +157,7 @@ def main() -> None:
         "run": cmd_run,
         "sweep": cmd_sweep,
         "summarize": cmd_summarize,
+        "spec": cmd_spec,
         "diff": cmd_diff,
         "plot": cmd_plot,
     }

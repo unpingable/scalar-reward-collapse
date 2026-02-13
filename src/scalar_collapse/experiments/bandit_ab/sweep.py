@@ -77,10 +77,18 @@ def run_sweep(sweep_config: SweepConfig, output_dir: Path) -> list[dict]:
             "regime": regime,
         })
 
+    # Determine controller type from first result
+    agent_type = results[0].get("agent_type", "epsilon_greedy") if results else "unknown"
+    if agent_type == "controlled_epsilon_greedy":
+        controller = "Throttle-on-Alive"
+    else:
+        controller = "None"
+
     # Write sweep summary (per-run + per-cell)
     sweep_output = {
         "per_run": results,
         "per_cell": cell_summaries,
+        "controller": controller,
         "regime_definitions": {
             "stable": "No runs violate C_k within horizon T",
             "metastable": "Some seeds violate C_k; tau large or high variance across seeds",
