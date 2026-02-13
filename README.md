@@ -221,11 +221,13 @@ runs/<run_dir>/
 
 ## Research lineage
 
-This project implements the scalar reward collapse domain instantiation from:
+This repo is the companion code for two papers:
 
-> Beck, J. (2025). "Cybernetic Feedback Dynamics and Drift." Section 3.8.
+> Beck, J. (2025). "Scalar Reward Collapse: A General Theory of Eigenstructure Evaporation in Closed-Loop Systems." [DOI: 10.5281/zenodo.17791872](https://zenodo.org/records/17791873)
 
-The CFDD framework provides the template (C_k, H, sigma, tau, kappa) that this repo instantiates with a concrete bandit/AB environment.
+> Beck, J. (2026). "Cybernetic Fault Domains: When Commitment Outruns Verification." Section 3.8. [DOI: 10.5281/zenodo.18518894](https://zenodo.org/records/18518895)
+
+Paper #03 (Scalar Reward Collapse) provides the mathematical theory — eigenstructure evaporation under scalar optimization. Paper #15 (Cybernetic Fault Domains) provides the CFDD framework template (C_k, H, sigma, tau, kappa) that this repo instantiates with a concrete bandit/AB environment.
 
 ## License
 
