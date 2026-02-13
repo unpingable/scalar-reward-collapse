@@ -101,6 +101,35 @@ def cmd_spec(args: argparse.Namespace) -> None:
     print(template.to_spec_block())
 
 
+def cmd_predict(args: argparse.Namespace) -> None:
+    """Predict regime from config without simulation."""
+    from scalar_collapse.core.boundary import predict_regime
+    from scalar_collapse.core.config import ExperimentConfig, WorldConfig
+
+    if args.config:
+        with open(args.config) as f:
+            raw = json.load(f)
+        world = WorldConfig(**raw.get("world", {}))
+        exp_kwargs = {k: v for k, v in raw.items() if k != "world"}
+        config = ExperimentConfig(world=world, **exp_kwargs)
+    else:
+        config = ExperimentConfig(
+            retention_delay_D=int(args.D),
+            update_cadence_W=int(args.W),
+        )
+
+    pred = predict_regime(config)
+    tau_str = f"{pred.tau_steady:.0f}" if pred.tau_steady < 1e6 else "inf"
+    print(f"predict_regime(D={pred.D}, W={pred.W})")
+    print(f"  Regime:              {pred.regime_pred}")
+    print(f"  First interval:      {'COLLAPSES' if pred.first_interval_collapses else 'safe'} (t_damage_first={pred.t_damage_first})")
+    print(f"  Crossover (Q drift): n_cross={pred.n_cross} updates, t_cross={pred.t_cross} rounds")
+    print(f"  Plant clock:         t_damage_post={pred.t_damage_post} rounds")
+    print(f"  D_crit:              {pred.D_crit} (t_cross + t_damage_post)")
+    print(f"  Steady-state:        B={pred.B_steady:.4f}, h={pred.h_steady:.6f}, tau={tau_str}")
+    print(f"  Margin:              {pred.margin:+.2f}")
+
+
 def cmd_plot(args: argparse.Namespace) -> None:
     """Generate plots for a run."""
     from scalar_collapse.experiments.bandit_ab.plots import generate_all_plots
@@ -142,6 +171,12 @@ def main() -> None:
     p_spec = sub.add_parser("spec", help="Print v0.2 spec block")
     p_spec.add_argument("--run-dir", type=str, required=True, help="Path to run directory")
 
+    # predict
+    p_pred = sub.add_parser("predict", help="Predict regime from config (no simulation)")
+    p_pred.add_argument("--config", type=str, default=None, help="Path to config JSON")
+    p_pred.add_argument("--D", type=int, default=50, help="Retention delay D")
+    p_pred.add_argument("--W", type=int, default=5, help="Update cadence W")
+
     # plot
     p_plot = sub.add_parser("plot", help="Generate plots")
     p_plot.add_argument("--run-dir", type=str, required=True, help="Path to run directory")
@@ -158,6 +193,7 @@ def main() -> None:
         "sweep": cmd_sweep,
         "summarize": cmd_summarize,
         "spec": cmd_spec,
+        "predict": cmd_predict,
         "diff": cmd_diff,
         "plot": cmd_plot,
     }

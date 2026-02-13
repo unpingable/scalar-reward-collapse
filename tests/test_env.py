@@ -328,3 +328,24 @@ def test_no_delay_truth_closes_gap():
         f"D=1 divergence={summary_d1['auc_divergence']:.1f} should be less than "
         f"D=500 divergence={summary_d500['auc_divergence']:.1f}"
     )
+
+
+def test_predict_regime_matches_sweep():
+    """Analytic boundary prediction should match observed regimes
+    for all cells in the default sweep grid."""
+    from scalar_collapse.core.config import ExperimentConfig
+    from scalar_collapse.core.boundary import predict_regime
+
+    expected = {
+        (10, 1): "stable", (10, 5): "stable", (10, 20): "stable",
+        (50, 1): "stable", (50, 5): "stable", (50, 20): "stable",
+        (200, 1): "metastable", (200, 5): "stable", (200, 20): "stable",
+        (500, 1): "unstable", (500, 5): "unstable", (500, 20): "unstable",
+    }
+
+    for (D, W), regime in expected.items():
+        config = ExperimentConfig(retention_delay_D=D, update_cadence_W=W)
+        pred = predict_regime(config)
+        assert pred.regime_pred == regime, (
+            f"D={D}, W={W}: predicted {pred.regime_pred}, expected {regime}"
+        )
