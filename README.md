@@ -162,17 +162,21 @@ scalar-reward-collapse/
       agents.py         # EpsilonGreedy, UCB, Thompson, Gradient, Controlled
       simulate.py       # Main simulation loop (proxy updates + D-corrections)
       sweep.py          # D x W x seed grid sweep with regime classification
+      policies.py       # Throttle policies (alive, sigma-rate, predictive)
+      kappa_sweep.py    # Kappa policy sweep runner + offline L computation
+      kappa_plots.py    # Efficient frontier, threshold vs kappa, boundary shift
       plots.py          # Heatmaps, proxy vs true, churn cliff, sigma trace
     runstore/
       manifest.py       # Run ID, config hash, artifact hashes
       writer.py         # Atomic writes, crash-safe manifest (written last)
       trajectory.py     # NDJSON trajectory logging
       diff.py           # Config/metric diff between runs
-    cli.py              # CLI: run, sweep, predict, spec, summarize, diff, plot
+    cli.py              # CLI: run, sweep, predict, spec, summarize, diff, plot, kappa-sweep
   tests/
     test_env.py         # Environment + simulation + boundary prediction tests
     test_metrics.py     # Metric function unit tests
     test_runstore.py    # Run store, manifest, trajectory tests
+    test_kappa_sweep.py # Kappa sweep policies + selection tests
   scripts/
     run_bandit_sweep.sh # Shell helper for default sweep
 ```

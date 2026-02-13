@@ -43,7 +43,7 @@ def _compute_true_arm_values(config: ExperimentConfig) -> list[float]:
     return values
 
 
-def run_experiment(config: ExperimentConfig, run_dir: Path) -> dict:
+def run_experiment(config: ExperimentConfig, run_dir: Path, policy=None) -> dict:
     """Run a single bandit experiment.
 
     Main loop:
@@ -55,6 +55,10 @@ def run_experiment(config: ExperimentConfig, run_dir: Path) -> dict:
     - Log per-step metrics to trajectory
     - Compute summary + template at end
     - Store run via runstore
+
+    If policy is provided, policy.should_throttle(t, state) overrides
+    the agent's own update decision. When policy is None, behavior is
+    identical to v0.2 — backward compatible.
 
     Returns the summary dict.
     """
@@ -85,6 +89,12 @@ def run_experiment(config: ExperimentConfig, run_dir: Path) -> dict:
     true_cum = 0.0
     sigma_cum = 0
 
+    # Rolling sigma rate window
+    sigma_window_size = 50
+    sigma_indicators: list[int] = []  # per-step sigma indicator (0 or 1)
+    sigma_rate_window = 0.0
+    throttle_count = 0
+
     writer = TrajectoryWriter(run_dir)
 
     try:
@@ -112,23 +122,51 @@ def run_experiment(config: ExperimentConfig, run_dir: Path) -> dict:
             true_cumulative.append(true_cum)
 
             # Sigma: proxy improves but true degrades
+            proxy_delta = 0.0
+            true_delta = 0.0
+            indicator = 0
             if len(proxy_rewards) >= 2:
-                if proxy_rewards[-1] > proxy_rewards[-2] and true_rewards[-1] < true_rewards[-2]:
+                proxy_delta = proxy_rewards[-1] - proxy_rewards[-2]
+                true_delta = true_rewards[-1] - true_rewards[-2]
+                if proxy_delta > 0 and true_delta < 0:
                     sigma_cum += 1
+                    indicator = 1
             sigma_cumulative.append(sigma_cum)
+
+            # Rolling sigma rate
+            sigma_indicators.append(indicator)
+            window_start = max(0, len(sigma_indicators) - sigma_window_size)
+            window_slice = sigma_indicators[window_start:]
+            sigma_rate_window = sum(window_slice) / len(window_slice)
 
             # Entropy of agent's arm selection distribution
             ent = policy_entropy(agent.arm_probs())
             entropies.append(ent)
             alive_fracs.append(result.alive_fraction)
 
+            # Build state dict for policy
+            state = {
+                "alive_fraction": result.alive_fraction,
+                "sigma_rate_window": sigma_rate_window,
+                "D": config.retention_delay_D,
+                "proxy_delta": proxy_delta,
+                "true_delta": true_delta,
+            }
+
             # Agent updates on proxy every W rounds
-            # Controller baseline can throttle this when alive drops
-            should_update = True
-            if hasattr(agent, "should_update_proxy"):
-                should_update = agent.should_update_proxy()
-            if should_update and (t + 1) % config.update_cadence_W == 0:
+            # Policy throttle overrides agent's own update decision
+            throttled = False
+            if policy is not None:
+                throttled = policy.should_throttle(t, state)
+            elif hasattr(agent, "should_update_proxy"):
+                # v0.2 backward compat: ControlledEpsilonGreedy path
+                throttled = not agent.should_update_proxy()
+
+            if not throttled and (t + 1) % config.update_cadence_W == 0:
                 agent.update(arm, proxy_r)
+
+            if throttled:
+                throttle_count += 1
 
             # True-signal correction every D rounds:
             # Retention team overrides the optimizer's value estimates
@@ -157,6 +195,8 @@ def run_experiment(config: ExperimentConfig, run_dir: Path) -> dict:
                 "true_cumulative": true_cum,
                 "entropy": ent,
                 "sigma_cumulative": sigma_cum,
+                "sigma_rate_window": sigma_rate_window,
+                "throttled": throttled,
                 "burnout_mean": result.mean_burnout,
                 "burnout_std": result.std_burnout,
             })
@@ -195,6 +235,8 @@ def run_experiment(config: ExperimentConfig, run_dir: Path) -> dict:
     alive_final = alive_fracs[-1] if alive_fracs else 0.0
     collapsed = tau >= 0
 
+    proxy_return = float(proxy_cum)
+
     summary = {
         "T": config.n_rounds,
         "seed": config.seed,
@@ -216,6 +258,8 @@ def run_experiment(config: ExperimentConfig, run_dir: Path) -> dict:
         "final_entropy": entropies[-1] if entropies else 0.0,
         "final_proxy_cumulative": proxy_cumulative[-1] if proxy_cumulative else 0.0,
         "final_true_cumulative": true_cumulative[-1] if true_cumulative else 0.0,
+        "proxy_return": proxy_return,
+        "throttle_count": throttle_count,
         "failure_signature": failure_sig,
         "true_arm_values": true_arm_values,
     }

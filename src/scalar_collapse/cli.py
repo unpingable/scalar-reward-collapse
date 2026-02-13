@@ -1,4 +1,4 @@
-"""Minimal CLI: run, sweep, summarize, diff, plot."""
+"""Minimal CLI: run, sweep, summarize, diff, plot, predict, kappa-sweep."""
 
 from __future__ import annotations
 
@@ -130,6 +130,82 @@ def cmd_predict(args: argparse.Namespace) -> None:
     print(f"  Margin:              {pred.margin:+.2f}")
 
 
+def _parse_float_list(s: str) -> list[float]:
+    """Parse comma-separated float list from CLI string."""
+    return [float(x.strip()) for x in s.split(",") if x.strip()]
+
+
+def _parse_int_list(s: str) -> list[int]:
+    """Parse comma-separated int list from CLI string."""
+    return [int(x.strip()) for x in s.split(",") if x.strip()]
+
+
+def cmd_kappa_sweep(args: argparse.Namespace) -> None:
+    """Run the kappa policy sweep."""
+    import numpy as np
+
+    from scalar_collapse.core.config import ExperimentConfig, WorldConfig
+    from scalar_collapse.experiments.bandit_ab.kappa_plots import generate_kappa_plots
+    from scalar_collapse.experiments.bandit_ab.kappa_sweep import run_kappa_sweep
+
+    base = ExperimentConfig()
+    kappa_grid = _parse_float_list(args.kappa_grid)
+    D_values = _parse_int_list(args.D)
+    W_values = _parse_int_list(args.W)
+    seeds = _parse_int_list(args.seeds)
+
+    # Determine which policies to run
+    if args.policy == "all":
+        policy_names = ["alive", "sigma", "predictive"]
+    else:
+        policy_names = [args.policy]
+
+    # Build threshold grids
+    threshold_grids = {}
+    if "alive" in policy_names:
+        threshold_grids["alive"] = list(np.linspace(
+            *_parse_float_list(args.alive_thresholds)[:2],
+            int(_parse_float_list(args.alive_thresholds)[2])
+        )) if "," in args.alive_thresholds and len(args.alive_thresholds.split(",")) == 3 else _parse_float_list(args.alive_thresholds)
+    if "sigma" in policy_names:
+        threshold_grids["sigma"] = list(np.linspace(
+            *_parse_float_list(args.sigma_thresholds)[:2],
+            int(_parse_float_list(args.sigma_thresholds)[2])
+        )) if "," in args.sigma_thresholds and len(args.sigma_thresholds.split(",")) == 3 else _parse_float_list(args.sigma_thresholds)
+    if "predictive" in policy_names:
+        threshold_grids["predictive"] = list(np.linspace(
+            *_parse_float_list(args.margin_thresholds)[:2],
+            int(_parse_float_list(args.margin_thresholds)[2])
+        )) if "," in args.margin_thresholds and len(args.margin_thresholds.split(",")) == 3 else _parse_float_list(args.margin_thresholds)
+
+    output_dir = Path(args.out)
+
+    summary = run_kappa_sweep(
+        base=base,
+        D_values=D_values,
+        W_values=W_values,
+        seeds=seeds,
+        kappa_grid=kappa_grid,
+        policy_names=policy_names,
+        threshold_grids=threshold_grids,
+        output_dir=output_dir,
+    )
+
+    # Generate plots
+    print("\nGenerating plots...")
+    plots = generate_kappa_plots(output_dir)
+    print(f"Generated {len(plots)} plots:")
+    for p in plots:
+        print(f"  {p}")
+
+    # Print summary
+    n_frontier = len(summary.get("frontier", []))
+    print(f"\nKappa sweep complete:")
+    print(f"  Total runs: {summary.get('n_total_runs', 0)}")
+    print(f"  Frontier points: {n_frontier}")
+    print(f"  Baseline collapse rate: {summary.get('baseline_collapse_rate', 0):.3f}")
+
+
 def cmd_plot(args: argparse.Namespace) -> None:
     """Generate plots for a run."""
     from scalar_collapse.experiments.bandit_ab.plots import generate_all_plots
@@ -182,6 +258,28 @@ def main() -> None:
     p_plot.add_argument("--run-dir", type=str, required=True, help="Path to run directory")
     p_plot.add_argument("--output", type=str, default=None, help="Output directory for plots")
 
+    # kappa-sweep
+    p_kappa = sub.add_parser("kappa-sweep", help="Run kappa policy sweep")
+    p_kappa.add_argument("--kappa-grid", type=str, default="0,0.1,0.3,1,3,10,30,100",
+                         help="Comma-separated kappa values")
+    p_kappa.add_argument("--policy", type=str, default="all",
+                         choices=["alive", "sigma", "predictive", "all"],
+                         help="Policy family to sweep (default: all)")
+    p_kappa.add_argument("--alive-thresholds", type=str, default="0.50,0.99,50",
+                         help="start,stop,n for alive thresholds (linspace) or explicit list")
+    p_kappa.add_argument("--sigma-thresholds", type=str, default="0.0,0.2,50",
+                         help="start,stop,n for sigma thresholds (linspace) or explicit list")
+    p_kappa.add_argument("--margin-thresholds", type=str, default="-0.5,1.0,50",
+                         help="start,stop,n for margin thresholds (linspace) or explicit list")
+    p_kappa.add_argument("--D", type=str, default="10,50,200,500",
+                         help="Comma-separated D values")
+    p_kappa.add_argument("--W", type=str, default="1,5,20",
+                         help="Comma-separated W values")
+    p_kappa.add_argument("--seeds", type=str, default="42,123,456",
+                         help="Comma-separated seed values")
+    p_kappa.add_argument("--out", type=str, default="runs/kappa_sweep",
+                         help="Output directory")
+
     args = parser.parse_args()
 
     if args.command is None:
@@ -196,5 +294,6 @@ def main() -> None:
         "predict": cmd_predict,
         "diff": cmd_diff,
         "plot": cmd_plot,
+        "kappa-sweep": cmd_kappa_sweep,
     }
     dispatch[args.command](args)
