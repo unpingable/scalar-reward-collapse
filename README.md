@@ -117,6 +117,10 @@ The `ControlledEpsilonGreedy` agent throttles proxy learning when `alive_fractio
 
 Proof that governance can shift regimes — collapse is a control problem, not an inevitability.
 
+## Signed baseline (Paper 16)
+
+Paper 16 reframes Δt as a *signed baseline*: the same temporal separation that produces destructive shear under weak coupling produces constructive leverage under strong coupling. In this repo, D is destructive because the system's reconciliation mechanism (epsilon-greedy update on scalar CTR) is a capture-mode correlator — it "reconciles" proxy and true signals by exponentially suppressing non-reward-maximal states (Paper 3's T-operator). The κ sweep demonstrates the sign flip: at κ=0 the system is pure capture; at κ>0 the throttle policies act as higher-fidelity correlators that extract signal from the delay rather than being destroyed by it. The predictive throttle, which uses knowledge of D_crit to gate updates, is a leverage-mode correlator by construction.
+
 ## Canonical instantiation (v0.2 spec block)
 
 ```
@@ -227,7 +231,9 @@ This repo is the companion code for two papers:
 
 > Beck, J. (2026). "Cybernetic Fault Domains: When Commitment Outruns Verification." Section 3.8. [DOI: 10.5281/zenodo.18518894](https://zenodo.org/records/18518895)
 
-Paper #03 (Scalar Reward Collapse) provides the mathematical theory — eigenstructure evaporation under scalar optimization. Paper #15 (Cybernetic Fault Domains) provides the CFDD framework template (C_k, H, sigma, tau, kappa) that this repo instantiates with a concrete bandit/AB environment.
+> Beck, J. (2026). "The Gain Geometry of Temporal Mismatch: Shear, Leverage, and Capture in Multi-Timescale Systems." Preprint, Δt Framework Paper 16.
+
+Paper #03 (Scalar Reward Collapse) provides the mathematical theory — eigenstructure evaporation under scalar optimization. Paper #15 (Cybernetic Fault Domains) provides the CFDD framework template (C_k, H, sigma, tau, kappa) that this repo instantiates with a concrete bandit/AB environment. Paper #16 (Gain Geometry) reframes the retention delay D as a signed baseline and identifies the T-operator as a capture-mode correlator.
 
 ## License
 
